@@ -9,14 +9,16 @@ import android.view.SurfaceHolder
 import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.style.CurrentUserStyleRepository
+import android.util.Log
 import com.example.timeuntil.data.EventSelectionManager
 import com.example.timeuntil.shared.Event
 import com.example.timeuntil.shared.EventSource
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import java.time.ZonedDateTime
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+
+private const val TAG = "TimeUntilRenderer"
 
 class TimeUntilCanvasRenderer(
     private val context: Context,
@@ -24,7 +26,7 @@ class TimeUntilCanvasRenderer(
     watchState: WatchState,
     currentUserStyleRepository: CurrentUserStyleRepository,
     canvasType: Int
-) : Renderer.CanvasRenderer2<TimeUntilCanvasRenderer.TimeUntilSharedAssets>(
+) : Renderer.CanvasRenderer(
     surfaceHolder,
     currentUserStyleRepository,
     watchState,
@@ -32,10 +34,6 @@ class TimeUntilCanvasRenderer(
     interactiveDrawModeUpdateDelayMillis = 16L,
     clearWithBackgroundTintBeforeRenderingHighlightLayer = true
 ) {
-    class TimeUntilSharedAssets : Renderer.SharedAssets {
-        override fun onDestroy() {}
-    }
-
     private val textPaint = Paint().apply {
         isAntiAlias = true
         color = Color.WHITE
@@ -50,7 +48,6 @@ class TimeUntilCanvasRenderer(
         textSize = 30f
     }
 
-    private val eventSelectionManager = EventSelectionManager(context)
     private var nextEvent: Event? = null
     private var lastEventUpdate: Long = 0
 
@@ -71,27 +68,35 @@ class TimeUntilCanvasRenderer(
 
     private var previousEventTime: Instant? = null
 
-    override suspend fun createSharedAssets(): TimeUntilSharedAssets {
-        return TimeUntilSharedAssets()
-    }
-
     override fun render(
         canvas: Canvas,
         bounds: Rect,
-        zonedDateTime: ZonedDateTime,
-        sharedAssets: TimeUntilSharedAssets
+        zonedDateTime: ZonedDateTime
     ) {
+        if (bounds.width() <= 0 || bounds.height() <= 0) return
+
         try {
             val now = Clock.System.now()
 
             // Update next event every minute or if currently null
             if (nextEvent == null || (now.toEpochMilliseconds() - lastEventUpdate) > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
+                Log.d(TAG, "Updating next event...")
                 val oldEvent = nextEvent
-                nextEvent = eventSelectionManager.getNextEvent()
+                
+                // Defensive manager creation
+                val manager = try { EventSelectionManager(context) } catch(e: Exception) { null }
+                
+                nextEvent = try {
+                    manager?.getNextEvent()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting next event", e)
+                    null
+                }
+                
                 lastEventUpdate = now.toEpochMilliseconds()
 
-                // For progress ring, we need some reference point. 
                 if (nextEvent != oldEvent) {
+                    Log.d(TAG, "New event detected: ${nextEvent?.title}")
                     previousEventTime = now 
                 }
             }
@@ -107,13 +112,10 @@ class TimeUntilCanvasRenderer(
                 drawCountdown(canvas, bounds, event, now)
             }
         } catch (e: Exception) {
-            canvas.drawColor(Color.BLACK)
-            textPaint.color = Color.RED
-            canvas.drawText("Error", bounds.centerX().toFloat(), bounds.centerY().toFloat(), textPaint)
-            subTextPaint.color = Color.WHITE
-            canvas.drawText(e.message ?: "Unknown", bounds.centerX().toFloat(), bounds.centerY().toFloat() + 40f, subTextPaint)
+            Log.e(TAG, "Render crash", e)
         }
     }
+
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
         val start = previousEventTime ?: now.minus(1.minutes)
         val end = event.startTime
@@ -131,7 +133,7 @@ class TimeUntilCanvasRenderer(
         )
 
         canvas.drawOval(rect, ringPaint)
-
+        
         progressPaint.color = textPaint.color // Match countdown color
         canvas.drawArc(rect, -90f, progress * 360f, false, progressPaint)
     }
@@ -159,16 +161,16 @@ class TimeUntilCanvasRenderer(
         subTextPaint.color = Color.GRAY
         canvas.drawText("Until:", bounds.centerX().toFloat(), bounds.centerY().toFloat() - 80f, subTextPaint)
         canvas.drawText(event.title, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 70f, subTextPaint)
-
+        
         val timeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
         val startTimeLocal = java.time.LocalDateTime.ofInstant(
             java.time.Instant.ofEpochMilli(event.startTime.toEpochMilliseconds()),
             java.time.ZoneId.systemDefault()
         )
         canvas.drawText(startTimeLocal.format(timeFormatter), bounds.centerX().toFloat(), bounds.centerY().toFloat() + 110f, subTextPaint)
-        }
+    }
 
-        private fun formatCountdown(remainingMillis: Long): String {
+    private fun formatCountdown(remainingMillis: Long): String {
         val totalMinutes = remainingMillis / 60000
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60
@@ -179,13 +181,13 @@ class TimeUntilCanvasRenderer(
             remainingMillis > 0 -> "<1m"
             else -> "0m"
         }
-        }
+    }
+
     override fun renderHighlightLayer(
         canvas: Canvas,
         bounds: Rect,
-        zonedDateTime: ZonedDateTime,
-        sharedAssets: TimeUntilSharedAssets
+        zonedDateTime: ZonedDateTime
     ) {
-        // Not used for now
+        // Not used
     }
 }
