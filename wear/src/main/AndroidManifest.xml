@@ -38,7 +38,7 @@
             android:name=".watchface.TimeUntilWatchFaceService"
             android:exported="true"
             android:label="@string/watch_face_name"
-            android:permission="android.permission.BIND_WATCH_FACE"
+            android:permission="android.permission.BIND_WALLPAPER"
             android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />

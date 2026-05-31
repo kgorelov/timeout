@@ -29,43 +29,6 @@ class TimeUntilWatchFaceService : WatchFaceService() {
     private var renderer: TimeUntilCanvasRenderer? = null
     private val eventSelectionManager by lazy { EventSelectionManager(applicationContext) }
 
-    override fun onCreate() {
-        Log.d(TAG, "Service onCreate")
-        super.onCreate()
-        
-        // Start background update loop
-        serviceScope.launch {
-            while (isActive) {
-                updateNextEvent()
-                delay(60000) // Update every minute
-            }
-        }
-    }
-
-    private suspend fun updateNextEvent() {
-        Log.v(TAG, "Background update starting...")
-        val event = withContext(Dispatchers.IO) {
-            try {
-                eventSelectionManager.getNextEvent()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch event", e)
-                null
-            }
-        }
-        
-        withContext(Dispatchers.Main) {
-            renderer?.let { r ->
-                if (r.nextEvent != event) {
-                    Log.i(TAG, "New event pushed to renderer: ${event?.title ?: "None"}")
-                    r.previousEventTime = Clock.System.now()
-                    r.nextEvent = event
-                }
-                r.isDataLoaded = true
-                r.invalidate()
-            }
-        }
-    }
-
     override suspend fun createWatchFace(
         surfaceHolder: SurfaceHolder,
         watchState: WatchState,
@@ -79,20 +42,45 @@ class TimeUntilWatchFaceService : WatchFaceService() {
             surfaceHolder = surfaceHolder,
             watchState = watchState,
             currentUserStyleRepository = currentUserStyleRepository,
-            canvasType = CanvasType.SOFTWARE
+            canvasType = CanvasType.HARDWARE // Return to hardware rendering
         )
         
         this.renderer = newRenderer
 
-        // Trigger immediate update
+        // Start updates
         serviceScope.launch {
-            updateNextEvent()
+            while (isActive) {
+                updateNextEvent()
+                delay(60000)
+            }
         }
 
         return WatchFace(
             WatchFaceType.DIGITAL,
             newRenderer
         )
+    }
+
+    private suspend fun updateNextEvent() {
+        val event = withContext(Dispatchers.IO) {
+            try {
+                eventSelectionManager.getNextEvent()
+            } catch (e: Exception) {
+                Log.e(TAG, "Fetch failed", e)
+                null
+            }
+        }
+        
+        withContext(Dispatchers.Main) {
+            renderer?.let { r ->
+                if (event != null && r.nextEvent?.id != event.id) {
+                    Log.i(TAG, "Updated to: ${event.title}")
+                    r.previousEventTime = Clock.System.now()
+                    r.nextEvent = event
+                    r.invalidate()
+                }
+            }
+        }
     }
 
     override fun createComplicationSlotsManager(

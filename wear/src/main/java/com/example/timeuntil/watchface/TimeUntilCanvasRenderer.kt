@@ -10,7 +10,6 @@ import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.style.CurrentUserStyleRepository
 import android.util.Log
-import com.example.timeuntil.data.EventSelectionManager
 import com.example.timeuntil.shared.Event
 import com.example.timeuntil.shared.EventSource
 import kotlinx.datetime.Clock
@@ -48,10 +47,9 @@ class TimeUntilCanvasRenderer(
         textSize = 30f
     }
 
-    // State managed outside the render loop
-    var nextEvent: Event? = null
-    var isDataLoaded: Boolean = false
-    var previousEventTime: Instant? = null
+    // Default to a mock event so we never have a "blank" frame
+    var nextEvent: Event? = Event("mock", "Syncing...", Clock.System.now().plus(60.minutes), null, EventSource.ROUTINE, true)
+    var previousEventTime: Instant? = Clock.System.now()
 
     private val ringPaint = Paint().apply {
         isAntiAlias = true
@@ -77,25 +75,15 @@ class TimeUntilCanvasRenderer(
 
         canvas.drawColor(Color.BLACK)
 
-        if (!isDataLoaded) {
-            drawLoading(canvas, bounds)
-            return
-        }
-
         val now = Clock.System.now()
         val event = nextEvent
 
-        if (event == null || event.startTime < now) {
+        if (event == null) {
             drawNoEvents(canvas, bounds)
         } else {
             drawProgressRing(canvas, bounds, event, now)
             drawCountdown(canvas, bounds, event, now)
         }
-    }
-
-    private fun drawLoading(canvas: Canvas, bounds: Rect) {
-        subTextPaint.color = Color.GRAY
-        canvas.drawText("Loading...", bounds.centerX().toFloat(), bounds.centerY().toFloat(), subTextPaint)
     }
 
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
