@@ -1,7 +1,7 @@
 package com.example.timeuntil.shared
 
 import kotlinx.datetime.Instant
-import kotlinx.datetime.LocalTime
+import java.time.LocalTime
 import java.time.DayOfWeek
 
 enum class EventSource {

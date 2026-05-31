@@ -24,7 +24,7 @@ class EventSelectionManager(private val context: Context) {
         }
 
         val routineEvents = getUpcomingRoutineEvents(now)
-        
+
         val allEvents = mutableListOf<Event>()
         calendarEvent?.let { allEvents.add(it) }
         allEvents.addAll(routineEvents)
@@ -37,35 +37,38 @@ class EventSelectionManager(private val context: Context) {
     private fun getUpcomingRoutineEvents(now: Instant): List<Event> {
         val routines = routineManager.getRoutines().filter { it.enabled }
         val result = mutableListOf<Event>()
-        
-        val nowDateTime = LocalDateTime.ofInstant(
+
+        val nowDateTime = java.time.LocalDateTime.ofInstant(
             java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()),
-            ZoneId.systemDefault()
+            java.time.ZoneId.systemDefault()
         )
 
         for (routine in routines) {
+            // routine.time is java.time.LocalTime (or should be)
+            val routineTime = java.time.LocalTime.of(routine.time.hour, routine.time.minute)
+
             // Check today
             if (routine.daysOfWeek.contains(nowDateTime.dayOfWeek)) {
-                val routineToday = nowDateTime.withHour(routine.time.hour).withMinute(routine.time.minute).withSecond(0).withNano(0)
+                val routineToday = nowDateTime.withHour(routineTime.hour).withMinute(routineTime.minute).withSecond(0).withNano(0)
                 if (routineToday.isAfter(nowDateTime)) {
                     result.add(routineToEvent(routine, routineToday))
                 }
             }
-            
-            // Check tomorrow (if no event today)
+
+            // Check tomorrow
             val tomorrow = nowDateTime.plusDays(1)
             if (routine.daysOfWeek.contains(tomorrow.dayOfWeek)) {
-                val routineTomorrow = tomorrow.withHour(routine.time.hour).withMinute(routine.time.minute).withSecond(0).withNano(0)
+                val routineTomorrow = tomorrow.withHour(routineTime.hour).withMinute(routineTime.minute).withSecond(0).withNano(0)
                 result.add(routineToEvent(routine, routineTomorrow))
             }
         }
-        
+
         return result
     }
 
-    private fun routineToEvent(routine: com.example.timeuntil.shared.Routine, dateTime: LocalDateTime): Event {
+    private fun routineToEvent(routine: com.example.timeuntil.shared.Routine, dateTime: java.time.LocalDateTime): Event {
         val instant = Instant.fromEpochMilliseconds(
-            dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         )
         return Event(
             id = routine.id,

@@ -29,7 +29,7 @@ class TimeUntilCanvasRenderer(
     currentUserStyleRepository,
     watchState,
     canvasType,
-    interactiveUpdateIntervalMillis = 1000,
+    interactiveDrawModeUpdateDelayMillis = 16L,
     clearWithBackgroundTintBeforeRenderingHighlightLayer = true
 ) {
     class TimeUntilSharedAssets : Renderer.SharedAssets {
@@ -84,15 +84,14 @@ class TimeUntilCanvasRenderer(
         val now = Clock.System.now()
 
         // Update next event every minute or if currently null
-        if (nextEvent == null || now.toEpochMilliseconds() - lastEventUpdate > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
+        if (nextEvent == null || (now.toEpochMilliseconds() - lastEventUpdate) > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
             val oldEvent = nextEvent
             nextEvent = eventSelectionManager.getNextEvent()
             lastEventUpdate = now.toEpochMilliseconds()
 
             // For progress ring, we need some reference point.
-            // If we don't have a real previous event, we use -1 hour from now as a fallback.
             if (nextEvent != oldEvent) {
-                previousEventTime = now // For MVP, let's just reset progress when event changes
+                previousEventTime = now
             }
         }
 
@@ -112,11 +111,10 @@ class TimeUntilCanvasRenderer(
         val start = previousEventTime ?: now.minus(1.minutes)
         val end = event.startTime
 
-        val total = (end - start).inWholeMilliseconds
-        val elapsed = (now - start).inWholeMilliseconds
+        val total = end.toEpochMilliseconds() - start.toEpochMilliseconds()
+        val elapsed = now.toEpochMilliseconds() - start.toEpochMilliseconds()
 
         val progress = if (total > 0) (elapsed.toFloat() / total).coerceIn(0f, 1f) else 1f
-
         val margin = 20f
         val rect = android.graphics.RectF(
             bounds.left + margin,
@@ -137,11 +135,10 @@ class TimeUntilCanvasRenderer(
     }
 
     private fun drawCountdown(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
-        val remaining = event.startTime - now
-        val remainingMillis = remaining.inWholeMilliseconds
+        val remainingMillis = event.startTime.toEpochMilliseconds() - now.toEpochMilliseconds()
+        val minutesRemaining = remainingMillis / 60000
 
         // Color logic
-        val minutesRemaining = remaining.inWholeMinutes
         textPaint.color = when {
             minutesRemaining <= 5 -> Color.RED
             minutesRemaining <= 15 -> Color.rgb(255, 165, 0) // Orange
@@ -149,9 +146,8 @@ class TimeUntilCanvasRenderer(
             else -> Color.WHITE
         }
 
-        val countdownText = formatCountdown(remaining)
+        val countdownText = formatCountdown(remainingMillis)
         canvas.drawText(countdownText, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 20f, textPaint)
-
         // Subtext
         subTextPaint.color = Color.GRAY
         canvas.drawText("Until:", bounds.centerX().toFloat(), bounds.centerY().toFloat() - 80f, subTextPaint)
@@ -163,20 +159,20 @@ class TimeUntilCanvasRenderer(
             java.time.ZoneId.systemDefault()
         )
         canvas.drawText(startTimeLocal.format(timeFormatter), bounds.centerX().toFloat(), bounds.centerY().toFloat() + 110f, subTextPaint)
-    }
+        }
 
-    private fun formatCountdown(duration: Duration): String {
-        val hours = duration.inWholeHours
-        val minutes = duration.inWholeMinutes % 60
+        private fun formatCountdown(remainingMillis: Long): String {
+        val totalMinutes = remainingMillis / 60000
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
 
         return when {
             hours > 0 -> "${hours}h ${minutes}m"
             minutes > 0 -> "${minutes}m"
-            duration.inWholeSeconds > 0 -> "<1m"
+            remainingMillis > 0 -> "<1m"
             else -> "0m"
         }
-    }
-
+        }
     override fun renderHighlightLayer(
         canvas: Canvas,
         bounds: Rect,
