@@ -48,8 +48,10 @@ class TimeUntilCanvasRenderer(
         textSize = 30f
     }
 
-    private var nextEvent: Event? = null
-    private var lastEventUpdate: Long = 0
+    // State managed outside the render loop
+    var nextEvent: Event? = null
+    var isDataLoaded: Boolean = false
+    var previousEventTime: Instant? = null
 
     private val ringPaint = Paint().apply {
         isAntiAlias = true
@@ -66,8 +68,6 @@ class TimeUntilCanvasRenderer(
         strokeCap = Paint.Cap.ROUND
     }
 
-    private var previousEventTime: Instant? = null
-
     override fun render(
         canvas: Canvas,
         bounds: Rect,
@@ -75,45 +75,27 @@ class TimeUntilCanvasRenderer(
     ) {
         if (bounds.width() <= 0 || bounds.height() <= 0) return
 
-        try {
-            val now = Clock.System.now()
+        canvas.drawColor(Color.BLACK)
 
-            // Update next event every minute or if currently null
-            if (nextEvent == null || (now.toEpochMilliseconds() - lastEventUpdate) > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
-                Log.d(TAG, "Updating next event...")
-                val oldEvent = nextEvent
-                
-                // Defensive manager creation
-                val manager = try { EventSelectionManager(context) } catch(e: Exception) { null }
-                
-                nextEvent = try {
-                    manager?.getNextEvent()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error getting next event", e)
-                    null
-                }
-                
-                lastEventUpdate = now.toEpochMilliseconds()
-
-                if (nextEvent != oldEvent) {
-                    Log.d(TAG, "New event detected: ${nextEvent?.title}")
-                    previousEventTime = now 
-                }
-            }
-
-            canvas.drawColor(Color.BLACK)
-
-            val event = nextEvent
-
-            if (event == null || event.startTime < now) {
-                drawNoEvents(canvas, bounds)
-            } else {
-                drawProgressRing(canvas, bounds, event, now)
-                drawCountdown(canvas, bounds, event, now)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Render crash", e)
+        if (!isDataLoaded) {
+            drawLoading(canvas, bounds)
+            return
         }
+
+        val now = Clock.System.now()
+        val event = nextEvent
+
+        if (event == null || event.startTime < now) {
+            drawNoEvents(canvas, bounds)
+        } else {
+            drawProgressRing(canvas, bounds, event, now)
+            drawCountdown(canvas, bounds, event, now)
+        }
+    }
+
+    private fun drawLoading(canvas: Canvas, bounds: Rect) {
+        subTextPaint.color = Color.GRAY
+        canvas.drawText("Loading...", bounds.centerX().toFloat(), bounds.centerY().toFloat(), subTextPaint)
     }
 
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
@@ -134,7 +116,7 @@ class TimeUntilCanvasRenderer(
 
         canvas.drawOval(rect, ringPaint)
         
-        progressPaint.color = textPaint.color // Match countdown color
+        progressPaint.color = textPaint.color
         canvas.drawArc(rect, -90f, progress * 360f, false, progressPaint)
     }
 
@@ -147,17 +129,16 @@ class TimeUntilCanvasRenderer(
         val remainingMillis = event.startTime.toEpochMilliseconds() - now.toEpochMilliseconds()
         val minutesRemaining = remainingMillis / 60000
 
-        // Color logic
         textPaint.color = when {
             minutesRemaining <= 5 -> Color.RED
-            minutesRemaining <= 15 -> Color.rgb(255, 165, 0) // Orange
+            minutesRemaining <= 15 -> Color.rgb(255, 165, 0)
             minutesRemaining <= 60 -> Color.YELLOW
             else -> Color.WHITE
         }
 
         val countdownText = formatCountdown(remainingMillis)
         canvas.drawText(countdownText, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 20f, textPaint)
-        // Subtext
+        
         subTextPaint.color = Color.GRAY
         canvas.drawText("Until:", bounds.centerX().toFloat(), bounds.centerY().toFloat() - 80f, subTextPaint)
         canvas.drawText(event.title, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 70f, subTextPaint)
@@ -187,7 +168,5 @@ class TimeUntilCanvasRenderer(
         canvas: Canvas,
         bounds: Rect,
         zonedDateTime: ZonedDateTime
-    ) {
-        // Not used
-    }
+    ) {}
 }
