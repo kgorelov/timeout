@@ -1,0 +1,4 @@
+rootProject.name = "TimeUntil"
+include ':app'
+include ':wear'
+include ':shared'

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Time Until</string>
+    <string name="watch_face_name">Time Until Next Event</string>
+</resources>
