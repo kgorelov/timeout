@@ -15,6 +15,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+import androidx.wear.compose.material.AutoCenteringParams
+import androidx.wear.compose.material.PositionIndicator
+import androidx.wear.compose.material.Scaffold
+import androidx.wear.compose.material.rememberScalingLazyListState
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.text.style.TextAlign
+
 class PermissionsActivity : ComponentActivity() {
     private val permissionGranted = mutableStateOf(false)
 
@@ -28,17 +35,40 @@ class PermissionsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                ScalingLazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(16.dp)
+                val listState = rememberScalingLazyListState()
+                Scaffold(
+                    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
                 ) {
-                    item {
-                        Text(text = "Calendar Permission")
-                    }
-                    item {
-                        Button(onClick = {
-                            requestPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
-                        }) {
-                            Text(text = if (permissionGranted.value) "Granted" else "Grant Permission")
+                    ScalingLazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        autoCentering = AutoCenteringParams(itemIndex = 1)
+                    ) {
+                        item {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = "Calendar Access",
+                                style = MaterialTheme.typography.title3
+                            )
+                        }
+                        item {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = "Needed to display your next event.",
+                                style = MaterialTheme.typography.body2
+                            )
+                        }
+                        item {
+                            Button(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    requestPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                                }
+                            ) {
+                                Text(
+                                    text = if (permissionGranted.value) "Permission Granted" else "Grant Permission"
+                                )
+                            }
                         }
                     }
                 }

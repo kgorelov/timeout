@@ -81,32 +81,39 @@ class TimeUntilCanvasRenderer(
         zonedDateTime: ZonedDateTime,
         sharedAssets: TimeUntilSharedAssets
     ) {
-        val now = Clock.System.now()
+        try {
+            val now = Clock.System.now()
 
-        // Update next event every minute or if currently null
-        if (nextEvent == null || (now.toEpochMilliseconds() - lastEventUpdate) > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
-            val oldEvent = nextEvent
-            nextEvent = eventSelectionManager.getNextEvent()
-            lastEventUpdate = now.toEpochMilliseconds()
+            // Update next event every minute or if currently null
+            if (nextEvent == null || (now.toEpochMilliseconds() - lastEventUpdate) > 60000 || (nextEvent?.startTime ?: Instant.DISTANT_PAST) < now) {
+                val oldEvent = nextEvent
+                nextEvent = eventSelectionManager.getNextEvent()
+                lastEventUpdate = now.toEpochMilliseconds()
 
-            // For progress ring, we need some reference point.
-            if (nextEvent != oldEvent) {
-                previousEventTime = now
+                // For progress ring, we need some reference point. 
+                if (nextEvent != oldEvent) {
+                    previousEventTime = now 
+                }
             }
-        }
 
-        canvas.drawColor(Color.BLACK)
+            canvas.drawColor(Color.BLACK)
 
-        val event = nextEvent
+            val event = nextEvent
 
-        if (event == null || event.startTime < now) {
-            drawNoEvents(canvas, bounds)
-        } else {
-            drawProgressRing(canvas, bounds, event, now)
-            drawCountdown(canvas, bounds, event, now)
+            if (event == null || event.startTime < now) {
+                drawNoEvents(canvas, bounds)
+            } else {
+                drawProgressRing(canvas, bounds, event, now)
+                drawCountdown(canvas, bounds, event, now)
+            }
+        } catch (e: Exception) {
+            canvas.drawColor(Color.BLACK)
+            textPaint.color = Color.RED
+            canvas.drawText("Error", bounds.centerX().toFloat(), bounds.centerY().toFloat(), textPaint)
+            subTextPaint.color = Color.WHITE
+            canvas.drawText(e.message ?: "Unknown", bounds.centerX().toFloat(), bounds.centerY().toFloat() + 40f, subTextPaint)
         }
     }
-
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
         val start = previousEventTime ?: now.minus(1.minutes)
         val end = event.startTime

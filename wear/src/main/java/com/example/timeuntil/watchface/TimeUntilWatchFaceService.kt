@@ -30,4 +30,8 @@ class TimeUntilWatchFaceService : WatchFaceService() {
             renderer = renderer
         )
     }
+
+    override fun createComplicationSlotsManager(
+        currentUserStyleRepository: CurrentUserStyleRepository
+    ): ComplicationSlotsManager = ComplicationSlotsManager(emptyList(), currentUserStyleRepository)
 }
