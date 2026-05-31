@@ -3,4 +3,4 @@ gradle
 .idea
 shared/build
 wear/build
-
+app/build
