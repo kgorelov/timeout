@@ -1,5 +1,14 @@
 package com.example.timeuntil.watchface
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.BatteryManager
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasType
@@ -23,11 +32,57 @@ import kotlinx.datetime.Clock
 
 private const val TAG = "TimeUntilService"
 
-class TimeUntilWatchFaceService : WatchFaceService() {
-    
+class TimeUntilWatchFaceService : WatchFaceService(), SensorEventListener {
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var renderer: TimeUntilCanvasRenderer? = null
     private val eventSelectionManager by lazy { EventSelectionManager(applicationContext) }
+
+    private lateinit var sensorManager: SensorManager
+    private var stepSensor: Sensor? = null
+    private var initialSteps = -1
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level != -1 && scale != -1) {
+                val batteryPct = level / scale.toFloat()
+                renderer?.let {
+                    it.batteryLevel = batteryPct
+                    it.invalidate()
+                }
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+
+        stepSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent) {
+        if (event.sensor.type == Sensor.TYPE_STEP_COUNTER) {
+            val steps = event.values[0].toInt()
+            if (initialSteps == -1) {
+                initialSteps = steps
+            }
+            val stepsToday = steps - initialSteps
+            renderer?.let {
+                it.stepCount = stepsToday
+                it.invalidate()
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     override suspend fun createWatchFace(
         surfaceHolder: SurfaceHolder,
@@ -36,7 +91,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
         currentUserStyleRepository: CurrentUserStyleRepository
     ): WatchFace {
         Log.d(TAG, "createWatchFace")
-        
+
         val newRenderer = TimeUntilCanvasRenderer(
             context = applicationContext,
             surfaceHolder = surfaceHolder,
@@ -44,7 +99,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
             currentUserStyleRepository = currentUserStyleRepository,
             canvasType = CanvasType.HARDWARE // Return to hardware rendering
         )
-        
+
         this.renderer = newRenderer
 
         // Start updates
@@ -70,7 +125,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
                 null
             }
         }
-        
+
         withContext(Dispatchers.Main) {
             renderer?.let { r ->
                 if (event != null && r.nextEvent?.id != event.id) {
@@ -92,6 +147,8 @@ class TimeUntilWatchFaceService : WatchFaceService() {
     override fun onDestroy() {
         Log.d(TAG, "Service onDestroy")
         serviceScope.cancel()
+        unregisterReceiver(batteryReceiver)
+        sensorManager.unregisterListener(this)
         renderer = null
         super.onDestroy()
     }

@@ -23,12 +23,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.text.style.TextAlign
 
 class PermissionsActivity : ComponentActivity() {
-    private val permissionGranted = mutableStateOf(false)
+    private val calendarPermissionGranted = mutableStateOf(false)
+    private val activityPermissionGranted = mutableStateOf(false)
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        permissionGranted.value = isGranted
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        calendarPermissionGranted.value = permissions[Manifest.permission.READ_CALENDAR] ?: false
+        activityPermissionGranted.value = permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,26 +49,34 @@ class PermissionsActivity : ComponentActivity() {
                         item {
                             Text(
                                 modifier = Modifier.fillMaxWidth(),
-                                text = "Calendar Access",
-                                style = MaterialTheme.typography.title3
+                                text = "Required Permissions",
+                                style = MaterialTheme.typography.title3,
+                                textAlign = TextAlign.Center
                             )
                         }
                         item {
                             Text(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = "Needed to display your next event.",
-                                style = MaterialTheme.typography.body2
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                text = "Grant permissions to see events and steps.",
+                                style = MaterialTheme.typography.body2,
+                                textAlign = TextAlign.Center
                             )
                         }
                         item {
                             Button(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 onClick = {
-                                    requestPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                                    requestPermissionsLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_CALENDAR,
+                                            Manifest.permission.ACTIVITY_RECOGNITION
+                                        )
+                                    )
                                 }
                             ) {
                                 Text(
-                                    text = if (permissionGranted.value) "Permission Granted" else "Grant Permission"
+                                    text = if (calendarPermissionGranted.value && activityPermissionGranted.value)
+                                        "All Granted" else "Grant All"
                                 )
                             }
                         }

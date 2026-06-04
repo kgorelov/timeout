@@ -54,9 +54,27 @@ class TimeUntilCanvasRenderer(
         textSize = 26f
     }
 
+    private val sideTextPaint = Paint().apply {
+        isAntiAlias = true
+        color = Color.GRAY
+        textAlign = Paint.Align.CENTER
+        textSize = 22f
+    }
+
+    private val arcPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 6f
+        strokeCap = Paint.Cap.ROUND
+    }
+
     // Default to a mock event so we never have a "blank" frame
     var nextEvent: Event? = Event("mock", "Syncing...", Clock.System.now().plus(60.minutes), null, EventSource.ROUTINE, true)
     var previousEventTime: Instant? = Clock.System.now()
+
+    var batteryLevel: Float = 1.0f // 0.0 to 1.0
+    var stepCount: Int = 0
+    var stepGoal: Int = 10000
 
     private val ringPaint = Paint().apply {
         isAntiAlias = true
@@ -83,6 +101,8 @@ class TimeUntilCanvasRenderer(
         canvas.drawColor(Color.BLACK)
 
         drawTopInfo(canvas, bounds, zonedDateTime)
+        drawBatteryArc(canvas, bounds)
+        drawStepsArc(canvas, bounds)
 
         val now = Clock.System.now()
         val event = nextEvent
@@ -110,6 +130,80 @@ class TimeUntilCanvasRenderer(
         )
     }
 
+    private fun drawBatteryArc(canvas: Canvas, bounds: Rect) {
+        val margin = 40f
+        val rect = android.graphics.RectF(
+            bounds.left + margin,
+            bounds.top + margin,
+            bounds.right - margin,
+            bounds.bottom - margin
+        )
+
+        // Draw battery arc on the left (150 to 210 degrees)
+        val startAngle = 150f
+        val sweepAngle = 60f
+
+        arcPaint.color = Color.DKGRAY
+        canvas.drawArc(rect, startAngle, sweepAngle, false, arcPaint)
+
+        arcPaint.color = when {
+            batteryLevel > 0.5f -> Color.GREEN
+            batteryLevel > 0.2f -> Color.YELLOW
+            else -> Color.RED
+        }
+        canvas.drawArc(rect, startAngle, sweepAngle * batteryLevel, false, arcPaint)
+
+        // Draw rotated text
+        canvas.save()
+        val textX = bounds.left + margin - 15f
+        val textY = bounds.centerY().toFloat()
+        canvas.rotate(-90f, textX, textY)
+        canvas.drawText(
+            "BATTERY ${(batteryLevel * 100).toInt()}%",
+            textX,
+            textY,
+            sideTextPaint
+        )
+        canvas.restore()
+    }
+
+    private fun drawStepsArc(canvas: Canvas, bounds: Rect) {
+        val margin = 40f
+        val rect = android.graphics.RectF(
+            bounds.left + margin,
+            bounds.top + margin,
+            bounds.right - margin,
+            bounds.bottom - margin
+        )
+
+        // Draw steps arc on the right (-30 to 30 degrees)
+        val startAngle = -30f
+        val sweepAngle = 60f
+
+        arcPaint.color = Color.DKGRAY
+        canvas.drawArc(rect, startAngle, sweepAngle, false, arcPaint)
+
+        val progress = (stepCount.toFloat() / stepGoal).coerceIn(0f, 1f)
+        arcPaint.color = when {
+            progress > 0.8f -> Color.GREEN
+            progress > 0.3f -> Color.YELLOW
+            else -> Color.RED
+        }
+        canvas.drawArc(rect, startAngle, sweepAngle * progress, false, arcPaint)
+
+        // Draw rotated text
+        canvas.save()
+        val textX = bounds.right - margin + 15f
+        val textY = bounds.centerY().toFloat()
+        canvas.rotate(90f, textX, textY)
+        canvas.drawText(
+            "STEPS $stepCount",
+            textX,
+            textY,
+            sideTextPaint
+        )
+        canvas.restore()
+    }
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
         val start = previousEventTime ?: now.minus(1.minutes)
         val end = event.startTime
