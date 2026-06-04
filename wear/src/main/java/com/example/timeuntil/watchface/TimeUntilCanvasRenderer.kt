@@ -47,6 +47,13 @@ class TimeUntilCanvasRenderer(
         textSize = 30f
     }
 
+    private val topTextPaint = Paint().apply {
+        isAntiAlias = true
+        color = Color.LTGRAY
+        textAlign = Paint.Align.CENTER
+        textSize = 26f
+    }
+
     // Default to a mock event so we never have a "blank" frame
     var nextEvent: Event? = Event("mock", "Syncing...", Clock.System.now().plus(60.minutes), null, EventSource.ROUTINE, true)
     var previousEventTime: Instant? = Clock.System.now()
@@ -75,6 +82,8 @@ class TimeUntilCanvasRenderer(
 
         canvas.drawColor(Color.BLACK)
 
+        drawTopInfo(canvas, bounds, zonedDateTime)
+
         val now = Clock.System.now()
         val event = nextEvent
 
@@ -84,6 +93,21 @@ class TimeUntilCanvasRenderer(
             drawProgressRing(canvas, bounds, event, now)
             drawCountdown(canvas, bounds, event, now)
         }
+    }
+
+    private fun drawTopInfo(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
+        val timeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d")
+
+        val timeText = zonedDateTime.format(timeFormatter)
+        val dateText = zonedDateTime.format(dateFormatter)
+
+        canvas.drawText(
+            "$timeText • $dateText",
+            bounds.centerX().toFloat(),
+            bounds.top + (bounds.height() * 0.15f),
+            topTextPaint
+        )
     }
 
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
@@ -103,7 +127,7 @@ class TimeUntilCanvasRenderer(
         )
 
         canvas.drawOval(rect, ringPaint)
-        
+
         progressPaint.color = textPaint.color
         canvas.drawArc(rect, -90f, progress * 360f, false, progressPaint)
     }
@@ -126,11 +150,11 @@ class TimeUntilCanvasRenderer(
 
         val countdownText = formatCountdown(remainingMillis)
         canvas.drawText(countdownText, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 20f, textPaint)
-        
+
         subTextPaint.color = Color.GRAY
         canvas.drawText("Until:", bounds.centerX().toFloat(), bounds.centerY().toFloat() - 80f, subTextPaint)
         canvas.drawText(event.title, bounds.centerX().toFloat(), bounds.centerY().toFloat() + 70f, subTextPaint)
-        
+
         val timeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
         val startTimeLocal = java.time.LocalDateTime.ofInstant(
             java.time.Instant.ofEpochMilli(event.startTime.toEpochMilliseconds()),
