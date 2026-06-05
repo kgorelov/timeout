@@ -155,11 +155,12 @@ class TimeUntilCanvasRenderer(
 
         // Draw rotated text
         canvas.save()
-        val textX = bounds.left + margin - 15f
+        // val textX = bounds.left + margin - 15f
+        val textX = bounds.left + margin + 35f
         val textY = bounds.centerY().toFloat()
         canvas.rotate(-90f, textX, textY)
         canvas.drawText(
-            "BATTERY ${(batteryLevel * 100).toInt()}%",
+            "🔋 ${(batteryLevel * 100).toInt()}%",
             textX,
             textY,
             sideTextPaint
@@ -193,11 +194,12 @@ class TimeUntilCanvasRenderer(
 
         // Draw rotated text
         canvas.save()
-        val textX = bounds.right - margin + 15f
+        // val textX = bounds.right - margin + 15f
+        val textX = bounds.right - margin - 35f
         val textY = bounds.centerY().toFloat()
         canvas.rotate(90f, textX, textY)
         canvas.drawText(
-            "STEPS $stepCount",
+            "👣 $stepCount",
             textX,
             textY,
             sideTextPaint
