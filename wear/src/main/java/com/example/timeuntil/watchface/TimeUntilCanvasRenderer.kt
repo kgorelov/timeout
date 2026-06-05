@@ -123,9 +123,15 @@ class TimeUntilCanvasRenderer(
         val dateText = zonedDateTime.format(dateFormatter)
 
         canvas.drawText(
-            "$timeText • $dateText",
+            "$timeText",
             bounds.centerX().toFloat(),
             bounds.top + (bounds.height() * 0.15f),
+            topTextPaint
+        )
+        canvas.drawText(
+            "$dateText",
+            bounds.centerX().toFloat(),
+            bounds.top + (bounds.height() * 0.15f) + 35f,
             topTextPaint
         )
     }
