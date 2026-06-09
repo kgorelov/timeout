@@ -16,6 +16,9 @@ import androidx.health.services.client.data.DataType
 import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlotsManager
+import androidx.wear.watchface.ComplicationSlot
+import androidx.wear.watchface.TapEvent
+import androidx.wear.watchface.TapType
 import androidx.wear.watchface.WatchFace
 import androidx.wear.watchface.WatchFaceService
 import androidx.wear.watchface.WatchFaceType
@@ -42,6 +45,69 @@ class TimeUntilWatchFaceService : WatchFaceService() {
     private val eventSelectionManager by lazy { EventSelectionManager(applicationContext) }
 
     private lateinit var passiveMonitoringClient: PassiveMonitoringClient
+
+    private fun handleTap(x: Int, y: Int) {
+        val bounds = renderer?.surfaceHolder?.surfaceFrame ?: return
+        val height = bounds.height()
+        if (height <= 0) return
+
+        val relativeY = y.toFloat() / height
+
+        when {
+            relativeY > 0.75f -> {
+                Log.d(TAG, "Bottom tapped - launching health app")
+                launchHealthApp()
+            }
+            relativeY > 0.25f && relativeY <= 0.75f -> {
+                Log.d(TAG, "Center tapped - launching calendar app")
+                launchCalendarApp()
+            }
+        }
+    }
+
+    private fun launchHealthApp() {
+        val packages = listOf(
+            "com.mobvoi.companion.at",        // Mobvoi Health (New)
+            "com.mobvoi.ticwear.health.main", // TicHealth (Legacy)
+            "com.google.android.apps.fitness", // Google Fit
+            "com.samsung.android.app.shealth" // Samsung Health
+        )
+        for (pkg in packages) {
+            val intent = packageManager.getLaunchIntentForPackage(pkg)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                return
+            }
+        }
+        // Fallback to implicit fitness intent
+        try {
+            val intent = Intent(Intent.ACTION_MAIN)
+            intent.addCategory(Intent.CATEGORY_APP_FITNESS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not launch health app", e)
+        }
+    }
+
+    private fun launchCalendarApp() {
+        val pkg = "com.google.android.calendar"
+        val intent = packageManager.getLaunchIntentForPackage(pkg)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } else {
+            try {
+                val implicitIntent = Intent(Intent.ACTION_MAIN)
+                implicitIntent.addCategory(Intent.CATEGORY_APP_CALENDAR)
+                implicitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(implicitIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not launch calendar app", e)
+            }
+        }
+    }
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -142,10 +208,20 @@ class TimeUntilWatchFaceService : WatchFaceService() {
             }
         }
 
-        return WatchFace(
+        val watchFace = WatchFace(
             WatchFaceType.DIGITAL,
             newRenderer
         )
+
+        watchFace.setTapListener(object : WatchFace.TapListener {
+            override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
+                if (tapType == TapType.UP) {
+                    handleTap(tapEvent.xPos, tapEvent.yPos)
+                }
+            }
+        })
+
+        return watchFace
     }
 
     private suspend fun updateNextEvent() {
