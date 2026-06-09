@@ -25,12 +25,14 @@ import androidx.compose.ui.text.style.TextAlign
 class PermissionsActivity : ComponentActivity() {
     private val calendarPermissionGranted = mutableStateOf(false)
     private val activityPermissionGranted = mutableStateOf(false)
+    private val bodySensorsPermissionGranted = mutableStateOf(false)
 
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         calendarPermissionGranted.value = permissions[Manifest.permission.READ_CALENDAR] ?: false
         activityPermissionGranted.value = permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
+        bodySensorsPermissionGranted.value = permissions[Manifest.permission.BODY_SENSORS] ?: false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,13 +71,14 @@ class PermissionsActivity : ComponentActivity() {
                                     requestPermissionsLauncher.launch(
                                         arrayOf(
                                             Manifest.permission.READ_CALENDAR,
-                                            Manifest.permission.ACTIVITY_RECOGNITION
+                                            Manifest.permission.ACTIVITY_RECOGNITION,
+                                            Manifest.permission.BODY_SENSORS
                                         )
                                     )
                                 }
                             ) {
                                 Text(
-                                    text = if (calendarPermissionGranted.value && activityPermissionGranted.value)
+                                    text = if (calendarPermissionGranted.value && activityPermissionGranted.value && bodySensorsPermissionGranted.value)
                                         "All Granted" else "Grant All"
                                 )
                             }

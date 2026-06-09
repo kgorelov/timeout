@@ -4,13 +4,16 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.os.BatteryManager
 import android.util.Log
 import android.view.SurfaceHolder
+import androidx.concurrent.futures.await
+import androidx.health.services.client.HealthServices
+import androidx.health.services.client.PassiveListenerCallback
+import androidx.health.services.client.PassiveMonitoringClient
+import androidx.health.services.client.data.DataPointContainer
+import androidx.health.services.client.data.DataType
+import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.WatchFace
@@ -32,15 +35,13 @@ import kotlinx.datetime.Clock
 
 private const val TAG = "TimeUntilService"
 
-class TimeUntilWatchFaceService : WatchFaceService(), SensorEventListener {
+class TimeUntilWatchFaceService : WatchFaceService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var renderer: TimeUntilCanvasRenderer? = null
     private val eventSelectionManager by lazy { EventSelectionManager(applicationContext) }
 
-    private lateinit var sensorManager: SensorManager
-    private var stepSensor: Sensor? = null
-    private var initialSteps = -1
+    private lateinit var passiveMonitoringClient: PassiveMonitoringClient
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -56,33 +57,39 @@ class TimeUntilWatchFaceService : WatchFaceService(), SensorEventListener {
         }
     }
 
+    private val stepCallback = object : PassiveListenerCallback {
+        override fun onNewDataPointsReceived(dataPoints: DataPointContainer) {
+            val steps = dataPoints.getData(DataType.STEPS_DAILY).lastOrNull()?.value?.toInt() ?: 0
+            Log.d(TAG, "Step update: $steps")
+            serviceScope.launch {
+                withContext(Dispatchers.Main) {
+                    renderer?.let {
+                        if (it.stepCount != steps) {
+                            it.stepCount = steps
+                            it.invalidate()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        passiveMonitoringClient = HealthServices.getClient(this).passiveMonitoringClient
+
+        val config = PassiveListenerConfig.builder()
+            .setDataTypes(setOf(DataType.STEPS_DAILY))
+            .build()
+        
+        try {
+            passiveMonitoringClient.setPassiveListenerCallback(config, stepCallback)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set passive listener", e)
+        }
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-
-        stepSensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-        }
     }
-
-    override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type == Sensor.TYPE_STEP_COUNTER) {
-            val steps = event.values[0].toInt()
-            if (initialSteps == -1) {
-                initialSteps = steps
-            }
-            val stepsToday = steps - initialSteps
-            renderer?.let {
-                it.stepCount = stepsToday
-                it.invalidate()
-            }
-        }
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     override suspend fun createWatchFace(
         surfaceHolder: SurfaceHolder,
@@ -104,6 +111,12 @@ class TimeUntilWatchFaceService : WatchFaceService(), SensorEventListener {
 
         // Start updates
         serviceScope.launch {
+            try {
+                passiveMonitoringClient.flushAsync().await()
+            } catch (e: Exception) {
+                Log.e(TAG, "Flush failed", e)
+            }
+
             while (isActive) {
                 updateNextEvent()
                 delay(60000)
@@ -148,7 +161,11 @@ class TimeUntilWatchFaceService : WatchFaceService(), SensorEventListener {
         Log.d(TAG, "Service onDestroy")
         serviceScope.cancel()
         unregisterReceiver(batteryReceiver)
-        sensorManager.unregisterListener(this)
+        try {
+            passiveMonitoringClient.clearPassiveListenerCallbackAsync()
+        } catch (e: Exception) {
+            Log.e(TAG, "Clear callback failed", e)
+        }
         renderer = null
         super.onDestroy()
     }
