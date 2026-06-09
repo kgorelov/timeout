@@ -78,16 +78,6 @@ class TimeUntilWatchFaceService : WatchFaceService() {
         super.onCreate()
         passiveMonitoringClient = HealthServices.getClient(this).passiveMonitoringClient
 
-        val config = PassiveListenerConfig.builder()
-            .setDataTypes(setOf(DataType.STEPS_DAILY))
-            .build()
-        
-        try {
-            passiveMonitoringClient.setPassiveListenerCallback(config, stepCallback)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to set passive listener", e)
-        }
-
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
     }
 
@@ -104,15 +94,30 @@ class TimeUntilWatchFaceService : WatchFaceService() {
             surfaceHolder = surfaceHolder,
             watchState = watchState,
             currentUserStyleRepository = currentUserStyleRepository,
-            canvasType = CanvasType.HARDWARE // Return to hardware rendering
+            canvasType = CanvasType.HARDWARE
         )
 
         this.renderer = newRenderer
 
+        // Set up steps listener
+        val config = PassiveListenerConfig.builder()
+            .setDataTypes(setOf(DataType.STEPS_DAILY))
+            .build()
+
+        try {
+            passiveMonitoringClient.setPassiveListenerCallback(config, stepCallback)
+            Log.d(TAG, "Passive listener set")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set passive listener", e)
+        }
+
         // Start updates
         serviceScope.launch {
             try {
+                // Delay a bit to ensure listener is active and then flush to get initial data
+                delay(1000)
                 passiveMonitoringClient.flushAsync().await()
+                Log.d(TAG, "Passive listener flushed")
             } catch (e: Exception) {
                 Log.e(TAG, "Flush failed", e)
             }
