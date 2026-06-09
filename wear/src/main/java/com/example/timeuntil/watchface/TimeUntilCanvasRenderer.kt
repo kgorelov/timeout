@@ -56,9 +56,9 @@ class TimeUntilCanvasRenderer(
 
     private val sideTextPaint = Paint().apply {
         isAntiAlias = true
-        color = Color.GRAY
+        color = Color.LTGRAY
         textAlign = Paint.Align.CENTER
-        textSize = 22f
+        textSize = 26f
     }
 
     private val arcPaint = Paint().apply {
@@ -159,19 +159,26 @@ class TimeUntilCanvasRenderer(
         }
         canvas.drawArc(rect, startAngle, sweepAngle * batteryLevel, false, arcPaint)
 
-        // Draw rotated text
-        canvas.save()
-        // val textX = bounds.left + margin - 15f
+        // Draw rotated percentage text
         val textX = bounds.left + margin + 35f
         val textY = bounds.centerY().toFloat()
+        canvas.save()
         canvas.rotate(-90f, textX, textY)
         canvas.drawText(
-            "🔋 ${(batteryLevel * 100).toInt()}%",
+            "${(batteryLevel * 100).toInt()}%",
             textX,
             textY,
             sideTextPaint
         )
         canvas.restore()
+
+        // Draw straight icon under the arc/text
+        canvas.drawText(
+            "🔋",
+            textX,
+            textY + 70f,
+            sideTextPaint
+        )
     }
 
     private fun drawStepsArc(canvas: Canvas, bounds: Rect) {
@@ -198,19 +205,26 @@ class TimeUntilCanvasRenderer(
         }
         canvas.drawArc(rect, startAngle, sweepAngle * progress, false, arcPaint)
 
-        // Draw rotated text
-        canvas.save()
-        // val textX = bounds.right - margin + 15f
+        // Draw rotated count text
         val textX = bounds.right - margin - 35f
         val textY = bounds.centerY().toFloat()
+        canvas.save()
         canvas.rotate(90f, textX, textY)
         canvas.drawText(
-            "👣 $stepCount",
+            "$stepCount",
             textX,
             textY,
             sideTextPaint
         )
         canvas.restore()
+
+        // Draw straight icon under the arc/text
+        canvas.drawText(
+            "👣",
+            textX,
+            textY + 70f,
+            sideTextPaint
+        )
     }
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
         val start = previousEventTime ?: now.minus(1.minutes)
