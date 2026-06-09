@@ -67,13 +67,16 @@ class TimeUntilWatchFaceService : WatchFaceService() {
 
     private fun launchHealthApp() {
         val packages = listOf(
+            "com.mobvoi.wear.health.at",        // Mobvoi Health (TicWatch Pro 5+)
+            "com.mobvoi.wear.fitness.at",       // Mobvoi Fitness (TicWatch Pro 5+)
             "com.mobvoi.ticwear.heartrate",     // TicPulse (Heart Rate)
             "com.mobvoi.ticwear.health",        // TicHealth
             "com.mobvoi.companion.at",          // Mobvoi Health (New)
             "com.mobvoi.ticwear.health.main",   // TicHealth (Legacy)
             "com.google.android.apps.fitness",   // Google Fit
             "com.samsung.android.app.shealth",  // Samsung Health
-            "com.google.android.apps.wear.health" // Google Pixel Health
+            "com.google.android.apps.wear.health", // Google Pixel Health
+            "com.mobvoi.wear.breath"            // Mobvoi Breath
         )
         for (pkg in packages) {
             val intent = packageManager.getLaunchIntentForPackage(pkg)
