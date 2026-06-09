@@ -57,15 +57,24 @@ class TimeUntilWatchFaceService : WatchFaceService() {
         }
     }
 
-    private val stepCallback = object : PassiveListenerCallback {
+    private val healthCallback = object : PassiveListenerCallback {
         override fun onNewDataPointsReceived(dataPoints: DataPointContainer) {
-            val steps = dataPoints.getData(DataType.STEPS_DAILY).lastOrNull()?.value?.toInt() ?: 0
-            Log.d(TAG, "Step update: $steps")
+            val steps = dataPoints.getData(DataType.STEPS_DAILY).lastOrNull()?.value?.toInt()
+            val heartRate = dataPoints.getData(DataType.HEART_RATE_BPM).lastOrNull()?.value?.toInt()
+
             serviceScope.launch {
                 withContext(Dispatchers.Main) {
                     renderer?.let {
-                        if (it.stepCount != steps) {
+                        var changed = false
+                        if (steps != null && it.stepCount != steps) {
                             it.stepCount = steps
+                            changed = true
+                        }
+                        if (heartRate != null && it.heartRate != heartRate) {
+                            it.heartRate = heartRate
+                            changed = true
+                        }
+                        if (changed) {
                             it.invalidate()
                         }
                     }
@@ -99,13 +108,13 @@ class TimeUntilWatchFaceService : WatchFaceService() {
 
         this.renderer = newRenderer
 
-        // Set up steps listener
+        // Set up health listener
         val config = PassiveListenerConfig.builder()
-            .setDataTypes(setOf(DataType.STEPS_DAILY))
+            .setDataTypes(setOf(DataType.STEPS_DAILY, DataType.HEART_RATE_BPM))
             .build()
 
         try {
-            passiveMonitoringClient.setPassiveListenerCallback(config, stepCallback)
+            passiveMonitoringClient.setPassiveListenerCallback(config, healthCallback)
             Log.d(TAG, "Passive listener set")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set passive listener", e)

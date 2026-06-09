@@ -75,6 +75,8 @@ class TimeUntilCanvasRenderer(
     var batteryLevel: Float = 1.0f // 0.0 to 1.0
     var stepCount: Int = 0
     var stepGoal: Int = 10000
+    var heartRate: Int = 0
+    var stressLevel: Int = 0
 
     private val ringPaint = Paint().apply {
         isAntiAlias = true
@@ -103,6 +105,7 @@ class TimeUntilCanvasRenderer(
         drawTopInfo(canvas, bounds, zonedDateTime)
         drawBatteryArc(canvas, bounds)
         drawStepsArc(canvas, bounds)
+        drawBottomInfo(canvas, bounds)
 
         val now = Clock.System.now()
         val event = nextEvent
@@ -226,6 +229,28 @@ class TimeUntilCanvasRenderer(
             sideTextPaint
         )
     }
+    private fun drawBottomInfo(canvas: Canvas, bounds: Rect) {
+        val centerX = bounds.centerX().toFloat()
+        val bottomY = bounds.bottom - (bounds.height() * 0.15f)
+
+        // Heart rate on the left, Stress on the right
+        val hrText = if (heartRate > 0) "❤️ $heartRate" else "❤️ --"
+        val stressText = if (stressLevel > 0) "🧘 $stressLevel" else "🧘 --"
+
+        canvas.drawText(
+            hrText,
+            centerX - 40f,
+            bottomY,
+            topTextPaint
+        )
+        canvas.drawText(
+            stressText,
+            centerX + 40f,
+            bottomY,
+            topTextPaint
+        )
+    }
+
     private fun drawProgressRing(canvas: Canvas, bounds: Rect, event: Event, now: Instant) {
         val start = previousEventTime ?: now.minus(1.minutes)
         val end = event.startTime
