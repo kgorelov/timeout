@@ -67,14 +67,18 @@ class TimeUntilWatchFaceService : WatchFaceService() {
 
     private fun launchHealthApp() {
         val packages = listOf(
-            "com.mobvoi.companion.at",        // Mobvoi Health (New)
-            "com.mobvoi.ticwear.health.main", // TicHealth (Legacy)
-            "com.google.android.apps.fitness", // Google Fit
-            "com.samsung.android.app.shealth" // Samsung Health
+            "com.mobvoi.ticwear.heartrate",     // TicPulse (Heart Rate)
+            "com.mobvoi.ticwear.health",        // TicHealth
+            "com.mobvoi.companion.at",          // Mobvoi Health (New)
+            "com.mobvoi.ticwear.health.main",   // TicHealth (Legacy)
+            "com.google.android.apps.fitness",   // Google Fit
+            "com.samsung.android.app.shealth",  // Samsung Health
+            "com.google.android.apps.wear.health" // Google Pixel Health
         )
         for (pkg in packages) {
             val intent = packageManager.getLaunchIntentForPackage(pkg)
             if (intent != null) {
+                Log.d(TAG, "Launching health app: $pkg")
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
                 return
@@ -82,6 +86,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
         }
         // Fallback to implicit fitness intent
         try {
+            Log.d(TAG, "No specific health app found, trying implicit intent")
             val intent = Intent(Intent.ACTION_MAIN)
             intent.addCategory(Intent.CATEGORY_APP_FITNESS)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
