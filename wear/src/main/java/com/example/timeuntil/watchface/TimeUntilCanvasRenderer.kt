@@ -76,7 +76,7 @@ class TimeUntilCanvasRenderer(
     var stepCount: Int = 0
     var stepGoal: Int = 10000
     var heartRate: Int = 0
-    var stressLevel: Int = 0
+    var calories: Int = 0
 
     private val ringPaint = Paint().apply {
         isAntiAlias = true
@@ -233,9 +233,9 @@ class TimeUntilCanvasRenderer(
         val centerX = bounds.centerX().toFloat()
         val bottomY = bounds.bottom - (bounds.height() * 0.15f)
 
-        // Heart rate on the left, Stress on the right
+        // Heart rate on the left, Calories on the right
         val hrText = if (heartRate > 0) "❤️ $heartRate" else "❤️ --"
-        val stressText = if (stressLevel > 0) "🧘 $stressLevel" else "🧘 --"
+        val calText = if (calories > 0) "🔥 $calories" else "🔥 --"
 
         canvas.drawText(
             hrText,
@@ -244,7 +244,7 @@ class TimeUntilCanvasRenderer(
             topTextPaint
         )
         canvas.drawText(
-            stressText,
+            calText,
             centerX + 40f,
             bottomY,
             topTextPaint

@@ -61,6 +61,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
         override fun onNewDataPointsReceived(dataPoints: DataPointContainer) {
             val steps = dataPoints.getData(DataType.STEPS_DAILY).lastOrNull()?.value?.toInt()
             val heartRate = dataPoints.getData(DataType.HEART_RATE_BPM).lastOrNull()?.value?.toInt()
+            val calories = dataPoints.getData(DataType.CALORIES_DAILY).lastOrNull()?.value?.toInt()
 
             serviceScope.launch {
                 withContext(Dispatchers.Main) {
@@ -72,6 +73,10 @@ class TimeUntilWatchFaceService : WatchFaceService() {
                         }
                         if (heartRate != null && it.heartRate != heartRate) {
                             it.heartRate = heartRate
+                            changed = true
+                        }
+                        if (calories != null && it.calories != calories) {
+                            it.calories = calories
                             changed = true
                         }
                         if (changed) {
@@ -110,7 +115,7 @@ class TimeUntilWatchFaceService : WatchFaceService() {
 
         // Set up health listener
         val config = PassiveListenerConfig.builder()
-            .setDataTypes(setOf(DataType.STEPS_DAILY, DataType.HEART_RATE_BPM))
+            .setDataTypes(setOf(DataType.STEPS_DAILY, DataType.HEART_RATE_BPM, DataType.CALORIES_DAILY))
             .build()
 
         try {
